@@ -1,6 +1,6 @@
 'use client'
 
-import { FiEdit2, FiTrash2, FiExternalLink, FiGripVertical } from 'react-icons/fi'
+import { FiEdit2, FiTrash2, FiExternalLink, FiMove } from 'react-icons/fi'
 
 interface LinkCardProps {
   id: string
@@ -28,7 +28,7 @@ export default function LinkCard({
       <div className="bg-white dark:bg-dark-100 rounded-xl p-4 shadow-md border border-gray-200 dark:border-gray-700 link-card">
         <div className="flex items-center gap-4">
           <div className="cursor-grab text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-            <FiGripVertical className="w-5 h-5" />
+            <FiMove className="w-5 h-5" />
           </div>
           
           <div className="flex-1 min-w-0">
