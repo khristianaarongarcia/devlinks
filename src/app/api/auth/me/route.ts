@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/mongodb'
-import User from '@/models/User'
+import { databases, DATABASE_ID, USERS_COLLECTION_ID } from '@/lib/appwrite'
 import { verifyToken, getTokenFromHeader } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -22,19 +21,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    await dbConnect()
-    
-    const user = await User.findById(decoded.userId).select('-password')
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      )
-    }
+    // Get user from Appwrite
+    const user = await databases.getDocument(
+      DATABASE_ID,
+      USERS_COLLECTION_ID,
+      decoded.userId
+    )
 
     return NextResponse.json({
       user: {
-        id: user._id,
+        id: user.$id,
         name: user.name,
         email: user.email,
         username: user.username,

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/mongodb'
-import Link from '@/models/Link'
+import { databases, DATABASE_ID, LINKS_COLLECTION_ID, Query, generateId } from '@/lib/appwrite'
 import { verifyToken, getTokenFromHeader } from '@/lib/auth'
 
 // GET all links for authenticated user
@@ -17,9 +16,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    await dbConnect()
-    
-    const links = await Link.find({ userId: decoded.userId }).sort({ order: 1 })
+    // Get links from Appwrite
+    const result = await databases.listDocuments(
+      DATABASE_ID,
+      LINKS_COLLECTION_ID,
+      [
+        Query.equal('userId', decoded.userId),
+        Query.orderAsc('order')
+      ]
+    )
+
+    const links = result.documents.map(doc => ({
+      _id: doc.$id,
+      userId: doc.userId,
+      title: doc.title,
+      url: doc.url,
+      icon: doc.icon,
+      clicks: doc.clicks,
+      order: doc.order,
+    }))
 
     return NextResponse.json({ links })
   } catch (error: any) {
@@ -42,8 +57,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
 
-    await dbConnect()
-    
     const { title, url, icon } = await request.json()
 
     if (!title || !url) {
@@ -51,16 +64,43 @@ export async function POST(request: NextRequest) {
     }
 
     // Get current max order
-    const lastLink = await Link.findOne({ userId: decoded.userId }).sort({ order: -1 })
-    const order = lastLink ? lastLink.order + 1 : 0
+    const existingLinks = await databases.listDocuments(
+      DATABASE_ID,
+      LINKS_COLLECTION_ID,
+      [
+        Query.equal('userId', decoded.userId),
+        Query.orderDesc('order'),
+        Query.limit(1)
+      ]
+    )
+    
+    const order = existingLinks.documents.length > 0 ? existingLinks.documents[0].order + 1 : 0
 
-    const link = await Link.create({
-      userId: decoded.userId,
-      title,
-      url,
-      icon: icon || '🌐',
-      order,
-    })
+    // Create link in Appwrite
+    const linkId = generateId()
+    const doc = await databases.createDocument(
+      DATABASE_ID,
+      LINKS_COLLECTION_ID,
+      linkId,
+      {
+        userId: decoded.userId,
+        title,
+        url,
+        icon: icon || '🌐',
+        clicks: 0,
+        order,
+      }
+    )
+
+    const link = {
+      _id: doc.$id,
+      userId: doc.userId,
+      title: doc.title,
+      url: doc.url,
+      icon: doc.icon,
+      clicks: doc.clicks,
+      order: doc.order,
+    }
 
     return NextResponse.json({ link })
   } catch (error: any) {

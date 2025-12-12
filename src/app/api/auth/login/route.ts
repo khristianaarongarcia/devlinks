@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import dbConnect from '@/lib/mongodb'
-import User from '@/models/User'
+import bcrypt from 'bcryptjs'
+import { databases, DATABASE_ID, USERS_COLLECTION_ID, Query } from '@/lib/appwrite'
 import { signToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
-    await dbConnect()
-    
     const { email, password } = await request.json()
 
     // Validate input
@@ -17,17 +15,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find user
-    const user = await User.findOne({ email })
-    if (!user) {
+    // Find user by email
+    const users = await databases.listDocuments(
+      DATABASE_ID,
+      USERS_COLLECTION_ID,
+      [Query.equal('email', email)]
+    )
+
+    if (users.total === 0) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
       )
     }
 
+    const user = users.documents[0]
+
     // Check password
-    const isMatch = await user.comparePassword(password)
+    const isMatch = await bcrypt.compare(password, user.password)
     if (!isMatch) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
@@ -36,11 +41,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate token
-    const token = signToken(user._id.toString())
+    const token = signToken(user.$id)
 
     return NextResponse.json({
       user: {
-        id: user._id,
+        id: user.$id,
         name: user.name,
         email: user.email,
         username: user.username,

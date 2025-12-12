@@ -1,6 +1,6 @@
 # DevLinks 🔗
 
-A beautiful, customizable personal link hub built with Next.js 14, MongoDB, and Tailwind CSS. Think Linktree, but for developers!
+A beautiful, customizable personal link hub built with Next.js 14, Appwrite, and Tailwind CSS. Think Linktree, but for developers!
 
 ![DevLinks Preview](https://via.placeholder.com/800x400/0ea5e9/ffffff?text=DevLinks+Preview)
 
@@ -13,13 +13,14 @@ A beautiful, customizable personal link hub built with Next.js 14, MongoDB, and 
 - 🌙 **Dark Mode** - Beautiful light and dark themes
 - 📱 **Responsive Design** - Works perfectly on all devices
 - ⚡ **Fast & SEO Friendly** - Built with Next.js App Router
+- ☁️ **Appwrite Backend** - Powered by Appwrite Database
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: Next.js 14 (App Router), React 18, TypeScript
 - **Styling**: Tailwind CSS
-- **Backend**: Next.js API Routes
-- **Database**: MongoDB with Mongoose
+- **Backend**: Next.js API Routes + Appwrite
+- **Database**: Appwrite Database
 - **Authentication**: JWT (JSON Web Tokens)
 - **Icons**: React Icons (Feather Icons)
 
@@ -28,13 +29,59 @@ A beautiful, customizable personal link hub built with Next.js 14, MongoDB, and 
 ### Prerequisites
 
 - Node.js 18+ installed
-- MongoDB database (local or [MongoDB Atlas](https://www.mongodb.com/atlas))
+- [Appwrite Cloud](https://cloud.appwrite.io) account (free tier available)
+
+### Appwrite Setup
+
+1. **Create an Appwrite Project**
+   - Go to [Appwrite Console](https://cloud.appwrite.io)
+   - Create a new project
+   - Note your Project ID
+
+2. **Create an API Key**
+   - Go to Settings → API Keys
+   - Create a new key with these scopes:
+     - `databases.read`, `databases.write`
+     - `collections.read`, `collections.write`
+     - `documents.read`, `documents.write`
+
+3. **Create Database & Collections**
+   
+   Create a database named `devlinks` and add these collections:
+
+   **Collection: `users`**
+   | Attribute | Type | Size | Required |
+   |-----------|------|------|----------|
+   | name | String | 50 | Yes |
+   | email | String | 320 | Yes |
+   | username | String | 30 | Yes |
+   | password | String | 255 | Yes |
+   | bio | String | 200 | No |
+   | avatar | String | 500 | No |
+
+   Indexes:
+   - `email` (Unique)
+   - `username` (Unique)
+
+   **Collection: `links`**
+   | Attribute | Type | Size | Required | Default |
+   |-----------|------|------|----------|---------|
+   | userId | String | 36 | Yes | - |
+   | title | String | 100 | Yes | - |
+   | url | String | 2000 | Yes | - |
+   | icon | String | 50 | Yes | - |
+   | clicks | Integer | - | Yes | 0 |
+   | order | Integer | - | Yes | 0 |
+
+   Indexes:
+   - `userId` (Key)
+   - `order` (Key)
 
 ### Installation
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/devlinks.git
+   git clone https://github.com/khristianaarongarcia/devlinks.git
    cd devlinks
    ```
 
@@ -50,7 +97,12 @@ A beautiful, customizable personal link hub built with Next.js 14, MongoDB, and 
    
    Edit `.env.local` and add your values:
    ```env
-   MONGODB_URI=mongodb+srv://your-connection-string
+   NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+   NEXT_PUBLIC_APPWRITE_PROJECT_ID=your-project-id
+   APPWRITE_API_KEY=your-api-key
+   APPWRITE_DATABASE_ID=devlinks
+   APPWRITE_USERS_COLLECTION_ID=users
+   APPWRITE_LINKS_COLLECTION_ID=links
    JWT_SECRET=your-super-secret-key
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    ```
@@ -87,12 +139,10 @@ devlinks/
 │   │   └── ThemeProvider.tsx
 │   ├── context/               # React context
 │   │   └── AuthContext.tsx
-│   ├── lib/                   # Utility functions
-│   │   ├── mongodb.ts
-│   │   └── auth.ts
-│   └── models/                # Mongoose models
-│       ├── User.ts
-│       └── Link.ts
+│   └── lib/                   # Utility functions
+│       ├── appwrite.ts        # Appwrite client & helpers
+│       ├── auth.ts            # JWT helpers
+│       └── schema.ts          # Database schema reference
 ├── public/                    # Static assets
 ├── .env.example              # Environment variables template
 ├── next.config.js            # Next.js configuration
@@ -141,7 +191,16 @@ The app supports system preferences and manual toggle. Colors are defined in `gl
 
 ## 📦 Deployment
 
-### Deploy to Vercel (Recommended)
+### Deploy to Appwrite Sites
+
+1. Push your code to GitHub
+2. In Appwrite Console, go to Sites
+3. Create a new site with Next.js framework
+4. Connect your GitHub repository
+5. Add environment variables
+6. Deploy!
+
+### Deploy to Vercel
 
 1. Push your code to GitHub
 2. Import your repository on [Vercel](https://vercel.com)
@@ -153,7 +212,12 @@ The app supports system preferences and manual toggle. Colors are defined in `gl
 ### Environment Variables for Production
 
 Make sure to set these in your deployment platform:
-- `MONGODB_URI` - Your MongoDB connection string
+- `NEXT_PUBLIC_APPWRITE_ENDPOINT` - Appwrite API endpoint
+- `NEXT_PUBLIC_APPWRITE_PROJECT_ID` - Your Appwrite project ID
+- `APPWRITE_API_KEY` - Your Appwrite API key
+- `APPWRITE_DATABASE_ID` - Database ID (default: devlinks)
+- `APPWRITE_USERS_COLLECTION_ID` - Users collection ID
+- `APPWRITE_LINKS_COLLECTION_ID` - Links collection ID
 - `JWT_SECRET` - A secure random string
 - `NEXT_PUBLIC_APP_URL` - Your production URL
 
@@ -175,7 +239,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [Next.js](https://nextjs.org/) - The React Framework
 - [Tailwind CSS](https://tailwindcss.com/) - A utility-first CSS framework
-- [MongoDB](https://www.mongodb.com/) - The database for modern applications
+- [Appwrite](https://appwrite.io/) - Your backend, minus the hassle
 - [React Icons](https://react-icons.github.io/react-icons/) - Popular icons as React components
 
 ---

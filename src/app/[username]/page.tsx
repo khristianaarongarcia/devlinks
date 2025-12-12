@@ -1,7 +1,5 @@
 import { notFound } from 'next/navigation'
-import dbConnect from '@/lib/mongodb'
-import User from '@/models/User'
-import Link from '@/models/Link'
+import { databases, DATABASE_ID, USERS_COLLECTION_ID, LINKS_COLLECTION_ID, Query } from '@/lib/appwrite'
 import ProfileView from './ProfileView'
 
 interface Props {
@@ -9,26 +7,45 @@ interface Props {
 }
 
 async function getProfileData(username: string) {
-  await dbConnect()
-  
-  const user = await User.findOne({ username }).select('-password')
-  if (!user) return null
+  try {
+    // Find user by username
+    const users = await databases.listDocuments(
+      DATABASE_ID,
+      USERS_COLLECTION_ID,
+      [Query.equal('username', username)]
+    )
+    
+    if (users.total === 0) return null
+    
+    const user = users.documents[0]
 
-  const links = await Link.find({ userId: user._id }).sort({ order: 1 })
-  
-  return {
-    user: {
-      name: user.name,
-      username: user.username,
-      bio: user.bio || '',
-      avatar: user.avatar || '',
-    },
-    links: links.map(link => ({
-      _id: link._id.toString(),
-      title: link.title,
-      url: link.url,
-      icon: link.icon,
-    }))
+    // Get user's links
+    const linksResult = await databases.listDocuments(
+      DATABASE_ID,
+      LINKS_COLLECTION_ID,
+      [
+        Query.equal('userId', user.$id),
+        Query.orderAsc('order')
+      ]
+    )
+    
+    return {
+      user: {
+        name: user.name,
+        username: user.username,
+        bio: user.bio || '',
+        avatar: user.avatar || '',
+      },
+      links: linksResult.documents.map((link: any) => ({
+        _id: link.$id,
+        title: link.title,
+        url: link.url,
+        icon: link.icon,
+      }))
+    }
+  } catch (error) {
+    console.error('Error fetching profile:', error)
+    return null
   }
 }
 
