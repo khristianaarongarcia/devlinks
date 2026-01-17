@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR Scanner</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            color: #fff;
+            overflow: hidden;
+        }
+        
+        /* Fullscreen scanner */
+        .scanner-fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Top bar */
+        .top-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 15px 20px;
+            padding-top: max(15px, env(safe-area-inset-top));
+            background: linear-gradient(to bottom, rgba(0,0,0,0.8) 0%, transparent 100%);
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .top-bar h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: #888;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+        
+        .status-dot.disconnected {
+            background: #ef4444;
+        }
+        
+        /* Scanner frame overlay */
+        .scanner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            z-index: 50;
+        }
+        
+        .scanner-frame {
+            width: 280px;
+            height: 280px;
+            position: relative;
+        }
+        
+        .scanner-frame::before,
+        .scanner-frame::after,
+        .scanner-frame .corner-bl,
+        .scanner-frame .corner-br {
+            content: '';
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-color: #fff;
+            border-style: solid;
+            border-width: 0;
+        }
+        
+        .scanner-frame::before {
+            top: 0;
+            left: 0;
+            border-top-width: 3px;
+            border-left-width: 3px;
+        }
+        
+        .scanner-frame::after {
+            top: 0;
+            right: 0;
+            border-top-width: 3px;
+            border-right-width: 3px;
+        }
+        
+        .scanner-frame .corner-bl {
+            bottom: 0;
+            left: 0;
+            border-bottom-width: 3px;
+            border-left-width: 3px;
+        }
+        
+        .scanner-frame .corner-br {
+            bottom: 0;
+            right: 0;
+            border-bottom-width: 3px;
+            border-right-width: 3px;
+        }
+        
+        .scan-line {
+            position: absolute;
+            top: 0;
+            left: 10px;
+            right: 10px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #22c55e, transparent);
+            animation: scan 2s ease-in-out infinite;
+        }
+        
+        @keyframes scan {
+            0%, 100% { top: 10px; opacity: 1; }
+            50% { top: calc(100% - 10px); opacity: 0.5; }
+        }
+        
+        .scanner-hint {
+            position: absolute;
+            bottom: -40px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.7);
+        }
+        
+        /* Bottom panel */
+        .bottom-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.8) 80%, transparent 100%);
+            padding: 30px 20px;
+            padding-bottom: max(30px, env(safe-area-inset-bottom));
+            z-index: 100;
+            transform: translateY(calc(100% - 90px));
+            transition: transform 0.3s ease;
+        }
+        
+        .bottom-panel.expanded {
+            transform: translateY(0);
+        }
+        
+        .panel-handle {
+            width: 40px;
+            height: 4px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            margin: 0 auto 20px;
+            cursor: pointer;
+        }
+        
+        .last-scan-preview {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 15px;
+            cursor: pointer;
+        }
+        
+        .last-scan-preview .label {
+            font-size: 0.75rem;
+            color: #888;
+            margin-bottom: 4px;
+        }
+        
+        .last-scan-preview .value {
+            font-size: 1rem;
+            font-weight: 500;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        
+        .last-scan-preview .arrow {
+            color: #888;
+            font-size: 1.2rem;
+            transition: transform 0.3s;
+        }
+        
+        .bottom-panel.expanded .last-scan-preview .arrow {
+            transform: rotate(90deg);
+        }
+        
+        /* Result card */
+        .result-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-left: 3px solid #22c55e;
+        }
+        
+        .result-card.not-found {
+            border-left-color: #ef4444;
+        }
+        
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .result-row:last-child {
+            border-bottom: none;
+        }
+        
+        .result-row .label {
+            color: #888;
+            font-size: 0.85rem;
+        }
+        
+        .result-row .value {
+            font-size: 0.9rem;
+            text-align: right;
+            max-width: 60%;
+            word-break: break-word;
+        }
+        
+        .result-row .value.highlight {
+            color: #22c55e;
+        }
+        
+        /* Manual input */
+        .manual-input {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .manual-input input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 1rem;
+        }
+        
+        .manual-input input::placeholder {
+            color: #666;
+        }
+        
+        .manual-input input:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+        
+        .manual-input button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #22c55e;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        /* Permission screen */
+        .permission-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #0a0a0a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            z-index: 200;
+            text-align: center;
+        }
+        
+        .permission-screen.hidden {
+            display: none;
+        }
+        
+        .permission-icon {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #333;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .permission-icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: #fff;
+        }
+        
+        .permission-screen h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+        
+        .permission-screen p {
+            color: #888;
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+        
+        .permission-btn {
+            width: 100%;
+            max-width: 300px;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: #fff;
+            color: #000;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .permission-btn:disabled {
+            background: #333;
+            color: #666;
+        }
+        
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: #22c55e;
+            color: #000;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            opacity: 0;
+            transition: all 0.3s ease;
+            z-index: 300;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .toast.error {
+            background: #ef4444;
+            color: #fff;
+        }
+        
+        .results-scroll {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Permission Screen -->
+    <div class="permission-screen" id="permissionScreen">
+        <div class="permission-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                <path d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"/>
+                <path d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z"/>
+            </svg>
+        </div>
+        <h2>Camera Access Required</h2>
+        <p>To scan QR codes, please allow camera access when prompted.</p>
+        <button class="permission-btn" id="permissionBtn" onclick="requestCameraAccess()">
+            Enable Camera
+        </button>
+    </div>
+    
+    <!-- Scanner -->
+    <div class="scanner-fullscreen" id="scannerView" style="display: none;">
+        <video id="video" playsinline autoplay muted></video>
+    </div>
+    
+    <!-- Top Bar -->
+    <div class="top-bar" id="topBar" style="display: none;">
+        <h1>QR Scanner</h1>
+        <div class="status-badge">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Connected</span>
+        </div>
+    </div>
+    
+    <!-- Scanner Overlay -->
+    <div class="scanner-overlay" id="scannerOverlay" style="display: none;">
+        <div class="scanner-frame">
+            <div class="corner-bl"></div>
+            <div class="corner-br"></div>
+            <div class="scan-line"></div>
+            <div class="scanner-hint">Align QR code within frame</div>
+        </div>
+    </div>
+    
+    <!-- Bottom Panel -->
+    <div class="bottom-panel" id="bottomPanel" style="display: none;">
+        <div class="panel-handle" onclick="togglePanel()"></div>
+        
+        <div class="last-scan-preview" onclick="togglePanel()" id="lastScanPreview">
+            <div>
+                <div class="label">Last Scan</div>
+                <div class="value" id="lastScanValue">No scans yet</div>
+            </div>
+            <div class="arrow">›</div>
+        </div>
+        
+        <div class="results-scroll" id="resultsContainer"></div>
+        
+        <div class="manual-input">
+            <input type="text" id="manualInput" placeholder="Enter tracking number">
+            <button onclick="manualSearch()">Search</button>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+    
+    <script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let codeReader = null;
+        let scanning = false;
+        let lastScannedCode = '';
+        let scanCooldown = false;
+        
+        // Socket connection
+        socket.on('connect', () => {
+            document.getElementById('statusDot').classList.remove('disconnected');
+            document.getElementById('statusText').textContent = 'Connected';
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('statusDot').classList.add('disconnected');
+            document.getElementById('statusText').textContent = 'Disconnected';
+        });
+        
+        // Receive results
+        socket.on('scan-result', (data) => {
+            showResults(data);
+        });
+        
+        // Request camera access
+        async function requestCameraAccess() {
+            const btn = document.getElementById('permissionBtn');
+            btn.textContent = 'Requesting...';
+            btn.disabled = true;
+            
+            try {
+                const constraints = {
+                    audio: false,
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                };
+                
+                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                stream.getTracks().forEach(track => track.stop());
+                
+                // Hide permission screen, show scanner
+                document.getElementById('permissionScreen').classList.add('hidden');
+                document.getElementById('scannerView').style.display = 'block';
+                document.getElementById('topBar').style.display = 'flex';
+                document.getElementById('scannerOverlay').style.display = 'flex';
+                document.getElementById('bottomPanel').style.display = 'block';
+                
+                startScanner();
+            } catch (err) {
+                console.error('Camera error:', err);
+                btn.textContent = 'Enable Camera';
+                btn.disabled = false;
+                showToast('Camera access denied. Check settings.', true);
+            }
+        }
+        
+        // Start scanner
+        async function startScanner() {
+            try {
+                // Configure hints for faster detection
+                const hints = new Map();
+                // Only look for QR codes and common 1D barcodes used in shipping
+                hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+                    ZXing.BarcodeFormat.QR_CODE,
+                    ZXing.BarcodeFormat.CODE_128,
+                    ZXing.BarcodeFormat.CODE_39,
+                    ZXing.BarcodeFormat.EAN_13,
+                    ZXing.BarcodeFormat.DATA_MATRIX
+                ]);
+                hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+                
+                codeReader = new ZXing.BrowserMultiFormatReader(hints, {
+                    delayBetweenScanAttempts: 100, // Scan every 100ms
+                    delayBetweenScanSuccess: 500   // Wait 500ms after successful scan
+                });
+                
+                await codeReader.decodeFromConstraints(
+                    { 
+                        video: { 
+                            facingMode: 'environment',
+                            width: { ideal: 1920, min: 1280 },
+                            height: { ideal: 1080, min: 720 },
+                            frameRate: { ideal: 30, min: 15 },
+                            focusMode: 'continuous',
+                            exposureMode: 'continuous'
+                        } 
+                    },
+                    'video',
+                    (result, err) => {
+                        if (result && !scanCooldown) {
+                            const code = result.getText();
+                            // Allow different codes immediately, only block same code
+                            if (code !== lastScannedCode) {
+                                lastScannedCode = code;
+                                handleScan(code);
+                                
+                                // Short cooldown to prevent duplicate reads of same code
+                                scanCooldown = true;
+                                setTimeout(() => {
+                                    scanCooldown = false;
+                                }, 500);
+                                
+                                // Clear last scanned code after 2 seconds to allow rescanning same code
+                                setTimeout(() => {
+                                    lastScannedCode = '';
+                                }, 2000);
+                            }
+                        }
+                    }
+                );
+                
+                scanning = true;
+            } catch (err) {
+                console.error('Scanner error:', err);
+                showToast('Failed to start scanner', true);
+            }
+        }
+        
+        // Handle scanned code
+        function handleScan(code) {
+            showToast('Scanned: ' + code.substring(0, 20) + (code.length > 20 ? '...' : ''));
+            socket.emit('scan', code);
+            
+            // Trigger feedback (beep + vibration)
+            triggerFeedback();
+            
+            // Expand panel to show results
+            document.getElementById('bottomPanel').classList.add('expanded');
+            
+            // Auto-collapse panel after 3 seconds to be ready for next scan
+            setTimeout(() => {
+                document.getElementById('bottomPanel').classList.remove('expanded');
+            }, 3000);
+        }
+        
+        // Manual search
+        function manualSearch() {
+            const input = document.getElementById('manualInput');
+            const tracking = input.value.trim();
+            if (tracking) {
+                socket.emit('scan', tracking);
+                input.value = '';
+                showToast('Searching...');
+                document.getElementById('bottomPanel').classList.add('expanded');
+            }
+        }
+        
+        // Show results
+        function showResults(data) {
+            document.getElementById('lastScanValue').textContent = data.trackingNumber;
+            
+            const container = document.getElementById('resultsContainer');
+            
+            if (data.results.length === 0) {
+                container.innerHTML = `
+                    <div class="result-card not-found">
+                        <div style="text-align: center; padding: 15px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px; color: #ef4444;">✗</div>
+                            <div style="font-weight: 600; color: #ef4444;">Not Found</div>
+                            <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">No matching records</div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="result-card">
+                        <div style="text-align: center; padding: 15px;">
+                            <div style="font-size: 2rem; margin-bottom: 10px; color: #22c55e;">✓</div>
+                            <div style="font-weight: 600; color: #22c55e;">Found</div>
+                            <div style="color: #888; font-size: 0.85rem; margin-top: 5px;">${data.results.length} record${data.results.length > 1 ? 's' : ''} matched</div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Expand panel
+            document.getElementById('bottomPanel').classList.add('expanded');
+        }
+        
+        // Toggle bottom panel
+        function togglePanel() {
+            document.getElementById('bottomPanel').classList.toggle('expanded');
+        }
+        
+        // Toast notification
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.toggle('error', isError);
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2000);
+        }
+        
+        // Enter key for manual input
+        document.getElementById('manualInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') manualSearch();
+        });
+        
+        // Check if permission already granted
+        async function checkExistingPermission() {
+            try {
+                if (navigator.permissions && navigator.permissions.query) {
+                    const result = await navigator.permissions.query({ name: 'camera' });
+                    if (result.state === 'granted') {
+                        document.getElementById('permissionScreen').classList.add('hidden');
+                        document.getElementById('scannerView').style.display = 'block';
+                        document.getElementById('topBar').style.display = 'flex';
+                        document.getElementById('scannerOverlay').style.display = 'flex';
+                        document.getElementById('bottomPanel').style.display = 'block';
+                        startScanner();
+                    }
+                }
+            } catch (err) {
+                console.log('Permissions API not available');
+            }
+        }
+        
+        checkExistingPermission();
+        
+        // Audio context for feedback sound (works on iOS and Android)
+        let audioContext = null;
+        
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            // Resume context if suspended (iOS requires user interaction)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+        
+        function playBeep(frequency = 1000, duration = 100, volume = 0.3) {
+            try {
+                initAudio();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration / 1000);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration / 1000);
+            } catch (e) {
+                console.log('Audio feedback not available:', e);
+            }
+        }
+        
+        function triggerFeedback() {
+            // Play beep sound (works on both iOS and Android)
+            playBeep(1200, 80, 0.2);
+            
+            // Also try vibration for Android
+            if (navigator.vibrate) {
+                navigator.vibrate(100);
+            }
+        }
+        
+        // Initialize audio on first user interaction (required for iOS)
+        document.addEventListener('touchstart', initAudio, { once: true });
+        document.addEventListener('click', initAudio, { once: true });
+    </script>
+</body>
+</html>

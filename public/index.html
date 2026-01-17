@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPX Product Searcher</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            color: #fff;
+        }
+        
+        .header {
+            background: #111;
+            border-bottom: 1px solid #222;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        
+        .header-status {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+        
+        .status-dot.disconnected {
+            background: #ef4444;
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            min-height: calc(100vh - 73px);
+        }
+        
+        @media (max-width: 1100px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                display: none;
+            }
+        }
+        
+        .sidebar {
+            background: #111;
+            border-right: 1px solid #222;
+            padding: 25px;
+            overflow-y: auto;
+        }
+        
+        .sidebar-section {
+            margin-bottom: 25px;
+        }
+        
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        /* Courier Stats */
+        .courier-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .courier-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .courier-item .courier-name {
+            font-size: 0.85rem;
+            color: #fff;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .courier-item .courier-count {
+            color: #22c55e;
+            font-weight: 600;
+        }
+        
+        .courier-progress {
+            height: 6px;
+            background: #222;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        
+        .courier-progress-bar {
+            height: 100%;
+            background: #22c55e;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        .reset-btn {
+            width: 100%;
+            padding: 10px;
+            margin-top: 15px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: transparent;
+            color: #888;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .reset-btn:hover {
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+        
+        .file-list {
+            list-style: none;
+        }
+        
+        .file-list li {
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            margin-bottom: 6px;
+            font-size: 0.8rem;
+            color: #aaa;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        
+        .search-box {
+            margin-bottom: 25px;
+        }
+        
+        .search-box label {
+            display: block;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .search-input-group {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .search-input-group input {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0a0a0a;
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        
+        .search-input-group input:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+        
+        .search-input-group button {
+            padding: 10px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #22c55e;
+            color: #000;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: monospace;
+            color: #888;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .history-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+        
+        .history-item .indicator {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+        
+        .history-item.not-found .indicator {
+            background: #ef4444;
+        }
+        
+        .content {
+            padding: 40px;
+            overflow-y: auto;
+        }
+        
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        
+        .content-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        
+        .tracking-badge {
+            padding: 6px 14px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        .waiting-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 100px 40px;
+            text-align: center;
+        }
+        
+        .waiting-icon {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #222;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 25px;
+        }
+        
+        .waiting-icon svg {
+            width: 40px;
+            height: 40px;
+            stroke: #444;
+        }
+        
+        .waiting-state h3 {
+            font-size: 1.25rem;
+            font-weight: 500;
+            margin-bottom: 10px;
+            color: #888;
+        }
+        
+        .waiting-state p {
+            color: #555;
+            font-size: 0.9rem;
+        }
+        
+        .results-grid {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .result-card {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .result-card.not-found {
+            border-left: 3px solid #ef4444;
+        }
+        
+        /* Order Code Header */
+        .order-code-header {
+            background: #22c55e;
+            color: #000;
+            padding: 20px 25px;
+            text-align: center;
+        }
+        
+        .order-code-header.missing {
+            background: #f59e0b;
+        }
+        
+        .order-code-header .order-code {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+        }
+        
+        .order-code-header .order-code-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        
+        /* Order Code Input */
+        .order-code-input-section {
+            background: #1a1a1a;
+            padding: 20px 25px;
+            border-bottom: 1px solid #222;
+        }
+        
+        .order-code-input-section label {
+            display: block;
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        
+        .order-code-input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .order-code-input-group input {
+            flex: 1;
+            padding: 12px 15px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0a0a0a;
+            color: #fff;
+            font-size: 1rem;
+        }
+        
+        .order-code-input-group input:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+        
+        .order-code-input-group button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            background: #22c55e;
+            color: #000;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        
+        .result-body {
+            padding: 25px;
+        }
+        
+        .result-source {
+            font-size: 0.75rem;
+            color: #666;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #222;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .courier-badge {
+            background: #1a1a1a;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .result-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .result-field .label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #666;
+        }
+        
+        .result-field .value {
+            font-size: 1rem;
+            color: #fff;
+            word-break: break-word;
+        }
+        
+        .result-field .value.highlight {
+            color: #22c55e;
+            font-weight: 500;
+        }
+        
+        .result-field .value.mono {
+            font-family: monospace;
+        }
+        
+        .result-field.full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .no-results {
+            text-align: center;
+            padding: 60px 40px;
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+            border-left: 3px solid #ef4444;
+        }
+        
+        .no-results h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #ef4444;
+        }
+        
+        .no-results p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+        
+        .timestamp {
+            font-size: 0.8rem;
+            color: #555;
+            margin-left: 15px;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>SPX Product Searcher</h1>
+        <div class="header-status">
+            <div class="status-item">
+                <span id="fileCount">0</span> files loaded
+            </div>
+            <div class="status-item">
+                <div class="status-dot" id="connectionDot"></div>
+                <span id="connectionStatus">Connected</span>
+            </div>
+        </div>
+    </header>
+    
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Courier Progress</h3>
+                <div class="courier-stats" id="courierStats">
+                    <div style="color: #555; font-size: 0.85rem;">Loading...</div>
+                </div>
+                <button class="reset-btn" onclick="resetScanned()">Reset Scanned Count</button>
+            </div>
+            
+            <div class="search-box">
+                <label>Manual Search</label>
+                <div class="search-input-group">
+                    <input type="text" id="manualInput" placeholder="Tracking number">
+                    <button onclick="manualSearch()">Search</button>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Recent Scans</h3>
+                <div class="history-list" id="historyList">
+                    <div style="color: #555; font-size: 0.85rem;">No scans yet</div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Loaded Files</h3>
+                <ul class="file-list" id="fileList">
+                    <li>Loading...</li>
+                </ul>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Compare List</h3>
+                <button class="reset-btn" style="border-color: #22c55e; color: #22c55e; margin-top: 0;" onclick="openCompareModal()">Compare Orders</button>
+            </div>
+        </aside>
+        
+        <main class="content">
+            <div class="content-header" id="contentHeader" style="display: none;">
+                <h2>Search Results</h2>
+                <div>
+                    <span class="tracking-badge" id="currentTracking"></span>
+                    <span class="timestamp" id="scanTimestamp"></span>
+                </div>
+            </div>
+            
+            <div id="resultsContainer">
+                <div class="waiting-state">
+                    <div class="waiting-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"/>
+                        </svg>
+                    </div>
+                    <h3>Waiting for scan</h3>
+                    <p>Use your phone to scan a QR code with a tracking number</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let searchHistory = [];
+        let pendingOrderCodes = {}; // Track items needing order codes
+        
+        // Escape HTML special characters for safe attribute values
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\n/g, ' ')
+                .replace(/\r/g, '');
+        }
+        
+        socket.on('connect', () => {
+            document.getElementById('connectionDot').classList.remove('disconnected');
+            document.getElementById('connectionStatus').textContent = 'Connected';
+        });
+        
+        socket.on('disconnect', () => {
+            document.getElementById('connectionDot').classList.add('disconnected');
+            document.getElementById('connectionStatus').textContent = 'Disconnected';
+        });
+        
+        socket.on('files-loaded', (files) => {
+            const fileList = document.getElementById('fileList');
+            const fileCount = document.getElementById('fileCount');
+            
+            fileCount.textContent = files.length;
+            
+            if (files.length === 0) {
+                fileList.innerHTML = '<li style="color: #ef4444;">No Excel files found</li>';
+            } else {
+                fileList.innerHTML = files.map(f => `<li title="${f}">${f}</li>`).join('');
+            }
+        });
+        
+        socket.on('courier-stats', (stats) => {
+            updateCourierStats(stats);
+        });
+        
+        socket.on('scan-result', (data) => {
+            displayResults(data);
+            addToHistory(data);
+            if (data.courierStats) {
+                updateCourierStats(data.courierStats);
+            }
+        });
+        
+        socket.on('order-code-saved', (data) => {
+            // Refresh if we have pending items for this SKU
+            if (pendingOrderCodes[data.parentSku]) {
+                // Re-search to update display
+                const tracking = document.getElementById('currentTracking').textContent;
+                if (tracking) {
+                    socket.emit('scan', tracking);
+                }
+            }
+        });
+        
+        function updateCourierStats(stats) {
+            const container = document.getElementById('courierStats');
+            
+            if (!stats || stats.length === 0) {
+                container.innerHTML = '<div style="color: #555; font-size: 0.85rem;">No orders found</div>';
+                return;
+            }
+            
+            // Filter out completed couriers (scanned = total)
+            const remaining = stats.filter(s => s.scanned < s.total);
+            const completed = stats.filter(s => s.scanned >= s.total);
+            
+            if (remaining.length === 0) {
+                container.innerHTML = `
+                    <div style="color: #22c55e; font-size: 0.85rem; text-align: center; padding: 15px;">
+                        All orders scanned!<br>
+                        <span style="color: #666; font-size: 0.75rem;">${completed.length} courier(s) completed</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = remaining.map(s => {
+                const percent = s.total > 0 ? (s.scanned / s.total) * 100 : 0;
+                return `
+                    <div class="courier-item">
+                        <div class="courier-name">
+                            <span>${s.courier}</span>
+                            <span class="courier-count" style="color: #f59e0b">${s.scanned}/${s.total}</span>
+                        </div>
+                        <div class="courier-progress">
+                            <div class="courier-progress-bar" style="width: ${percent}%; background: #f59e0b"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('') + (completed.length > 0 ? `
+                <div style="color: #666; font-size: 0.75rem; margin-top: 10px; text-align: center;">
+                    ${completed.length} courier(s) completed
+                </div>
+            ` : '');
+        }
+        
+        function displayResults(data) {
+            const container = document.getElementById('resultsContainer');
+            const header = document.getElementById('contentHeader');
+            const trackingEl = document.getElementById('currentTracking');
+            const timestampEl = document.getElementById('scanTimestamp');
+            
+            header.style.display = 'flex';
+            trackingEl.textContent = data.trackingNumber;
+            timestampEl.textContent = new Date(data.timestamp).toLocaleTimeString();
+            
+            if (data.error) {
+                container.innerHTML = `
+                    <div class="no-results">
+                        <h3>Error</h3>
+                        <p>${data.error}</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (data.results.length === 0) {
+                container.innerHTML = `
+                    <div class="no-results">
+                        <h3>No Results Found</h3>
+                        <p>Tracking number "${data.trackingNumber}" was not found in any Excel file.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Group items by tracking number - show each product but header only once
+            container.innerHTML = `
+                <div class="results-grid">
+                    ${data.results.map((r, index) => {
+                        pendingOrderCodes[r.parentSku] = !r.hasOrderCode;
+                        
+                        return `
+                        <div class="result-card">
+                            ${r.hasOrderCode ? `
+                                <div class="order-code-header">
+                                    <div class="order-code-label">Order Code</div>
+                                    <div class="order-code">${r.orderCode}</div>
+                                </div>
+                            ` : `
+                                <div class="order-code-header missing">
+                                    <div class="order-code-label">Order Code Not Set</div>
+                                    <div class="order-code">?</div>
+                                </div>
+                                <div class="order-code-input-section">
+                                    <label>Set order code for: ${escapeHtml(r.parentSku)}</label>
+                                    <div class="order-code-input-group">
+                                        <input type="text" id="orderCodeInput_${index}" placeholder="e.g., Samb">
+                                        <button data-index="${index}" data-sku="${escapeHtml(r.parentSku)}" data-product="${escapeHtml(r.productName)}" onclick="saveOrderCode(this)">Save</button>
+                                    </div>
+                                </div>
+                            `}
+                            <div class="result-body">
+                                <div class="result-source">
+                                    <span>Source: ${r.source}</span>
+                                    <span class="courier-badge">${r.shippingCourier}</span>
+                                </div>
+                                <div class="result-grid">
+                                    <div class="result-field">
+                                        <span class="label">Order ID</span>
+                                        <span class="value mono">${r.orderId}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Tracking Number</span>
+                                        <span class="value mono">${r.trackingNumber}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Parent SKU</span>
+                                        <span class="value">${r.parentSku}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Variation</span>
+                                        <span class="value">${r.variationName || 'N/A'}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Quantity</span>
+                                        <span class="value">${r.quantity}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Deal Price</span>
+                                        <span class="value">${r.dealPrice}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">SKU Weight</span>
+                                        <span class="value">${r.skuWeight}</span>
+                                    </div>
+                                    <div class="result-field full-width">
+                                        <span class="label">Product Name</span>
+                                        <span class="value highlight">${r.productName}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Username (Buyer)</span>
+                                        <span class="value">${r.username}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Receiver Name</span>
+                                        <span class="value">${r.receiverName}</span>
+                                    </div>
+                                    <div class="result-field">
+                                        <span class="label">Phone Number</span>
+                                        <span class="value mono">${r.phoneNumber}</span>
+                                    </div>
+                                    <div class="result-field full-width">
+                                        <span class="label">Delivery Address</span>
+                                        <span class="value">${r.deliveryAddress}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `}).join('')}
+                </div>
+            `;
+        }
+        
+        function saveOrderCode(btn) {
+            const index = btn.dataset.index;
+            const parentSku = btn.dataset.sku;
+            const productName = btn.dataset.product;
+            const input = document.getElementById(`orderCodeInput_${index}`);
+            const orderCode = input.value.trim();
+            
+            if (!orderCode) {
+                alert('Please enter an order code');
+                return;
+            }
+            
+            socket.emit('save-order-code', {
+                parentSku,
+                productName,
+                orderCode
+            });
+        }
+        
+        function addToHistory(data) {
+            searchHistory.unshift({
+                tracking: data.trackingNumber,
+                found: data.results.length > 0
+            });
+            
+            searchHistory = searchHistory.slice(0, 10);
+            
+            const historyList = document.getElementById('historyList');
+            historyList.innerHTML = searchHistory.map(h => `
+                <div class="history-item ${h.found ? '' : 'not-found'}" onclick="searchTracking('${h.tracking}')">
+                    <div class="indicator"></div>
+                    <span>${h.tracking}</span>
+                </div>
+            `).join('');
+        }
+        
+        function manualSearch() {
+            const input = document.getElementById('manualInput');
+            const tracking = input.value.trim();
+            if (tracking) {
+                searchTracking(tracking);
+                input.value = '';
+            }
+        }
+        
+        function searchTracking(tracking) {
+            socket.emit('scan', tracking);
+        }
+        
+        function resetScanned() {
+            if (confirm('Reset all scanned counts? This will clear the progress for all couriers.')) {
+                socket.emit('reset-scanned');
+            }
+        }
+        
+        document.getElementById('manualInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                manualSearch();
+            }
+        });
+        
+        // Compare functionality
+        function openCompareModal() {
+            document.getElementById('compareModal').style.display = 'flex';
+        }
+        
+        function closeCompareModal() {
+            document.getElementById('compareModal').style.display = 'none';
+        }
+        
+        async function compareList() {
+            const textarea = document.getElementById('compareInput');
+            const list = textarea.value.trim();
+            
+            if (!list) {
+                alert('Please paste a list to compare');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ list })
+                });
+                
+                const data = await response.json();
+                displayCompareResults(data);
+            } catch (err) {
+                console.error('Compare error:', err);
+                alert('Error comparing list');
+            }
+        }
+        
+        function displayCompareResults(data) {
+            const resultsDiv = document.getElementById('compareResults');
+            
+            resultsDiv.innerHTML = `
+                <div class="compare-summary">
+                    <div class="compare-stat">
+                        <span class="compare-stat-value">${data.total}</span>
+                        <span class="compare-stat-label">Total</span>
+                    </div>
+                    <div class="compare-stat scanned">
+                        <span class="compare-stat-value">${data.scannedCount}</span>
+                        <span class="compare-stat-label">Scanned</span>
+                    </div>
+                    <div class="compare-stat remaining">
+                        <span class="compare-stat-value">${data.remainingCount}</span>
+                        <span class="compare-stat-label">Remaining</span>
+                    </div>
+                </div>
+                
+                ${data.remainingCount > 0 ? `
+                    <div class="compare-list-section">
+                        <h4>Remaining (Not Scanned)</h4>
+                        <div class="compare-list">
+                            ${data.remaining.map(t => `<div class="compare-item remaining">${t}</div>`).join('')}
+                        </div>
+                    </div>
+                ` : '<div style="text-align: center; color: #22c55e; padding: 20px;">All items have been scanned!</div>'}
+                
+                ${data.scannedCount > 0 ? `
+                    <div class="compare-list-section">
+                        <h4>Already Scanned</h4>
+                        <div class="compare-list">
+                            ${data.scanned.map(t => `<div class="compare-item scanned">${t}</div>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            `;
+        }
+    </script>
+    
+    <!-- Compare Modal -->
+    <div class="modal-overlay" id="compareModal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Compare Orders</h2>
+                <button class="modal-close" onclick="closeCompareModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label>Paste your order list (tracking numbers or order IDs):</label>
+                <textarea id="compareInput" placeholder="Paste your list here..."></textarea>
+                <button class="compare-btn" onclick="compareList()">Compare</button>
+                <div id="compareResults"></div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #222;
+        }
+        
+        .modal-header h2 {
+            font-size: 1.25rem;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+        
+        .modal-close:hover {
+            color: #fff;
+        }
+        
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .modal-body label {
+            display: block;
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        
+        .modal-body textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #0a0a0a;
+            color: #fff;
+            font-family: monospace;
+            font-size: 0.85rem;
+            resize: vertical;
+        }
+        
+        .modal-body textarea:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+        
+        .compare-btn {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border: none;
+            border-radius: 8px;
+            background: #22c55e;
+            color: #000;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        
+        .compare-summary {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #0a0a0a;
+            border-radius: 8px;
+        }
+        
+        .compare-stat {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .compare-stat-value {
+            display: block;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        
+        .compare-stat-label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+        }
+        
+        .compare-stat.scanned .compare-stat-value {
+            color: #22c55e;
+        }
+        
+        .compare-stat.remaining .compare-stat-value {
+            color: #f59e0b;
+        }
+        
+        .compare-list-section {
+            margin-top: 20px;
+        }
+        
+        .compare-list-section h4 {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+        
+        .compare-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .compare-item {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+        
+        .compare-item.remaining {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+        
+        .compare-item.scanned {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+        
+        .already-scanned {
+            text-align: center;
+            padding: 80px 40px;
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+            border-left: 3px solid #3b82f6;
+        }
+        
+        .already-scanned-icon {
+            width: 60px;
+            height: 60px;
+            background: rgba(59, 130, 246, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #3b82f6;
+            margin: 0 auto 20px;
+        }
+        
+        .already-scanned h3 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+            color: #3b82f6;
+        }
+        
+        .already-scanned p {
+            color: #666;
+            font-size: 0.9rem;
+        }
+    </style>
+</body>
+</html>
