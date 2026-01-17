@@ -1,2 +1,10 @@
 /node_modules
 /package-lock.json
+/product_codes.db
+/cert.pem
+/key.pem
+/excel_files/
+# OS/IDE files
+.DS_Store
+Thumbs.db
+.vscode/
