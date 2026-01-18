@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Order Code Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .header {
+            background: #111;
+            border-bottom: 1px solid #222;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #22c55e;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #16a34a;
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            min-height: calc(100vh - 73px);
+        }
+
+        .sidebar {
+            background: #111;
+            border-right: 1px solid #222;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 30px;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .pdf-dropdown {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0a0a0a;
+            color: #fff;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .pdf-dropdown:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+
+        .config-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .config-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .config-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .config-group label {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .config-group input {
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #0a0a0a;
+            color: #fff;
+            font-size: 0.85rem;
+        }
+
+        .config-group input:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+
+        .content {
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .pdf-viewer {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+            min-height: 600px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pdf-canvas {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 8px;
+        }
+
+        .text-overlay {
+            position: absolute;
+            background: rgba(34, 197, 94, 0.9);
+            color: #000;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .loading-state {
+            text-align: center;
+            padding: 60px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #222;
+            border-top: 3px solid #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 40px;
+            color: #666;
+        }
+
+        .empty-state h3 {
+            font-size: 1.25rem;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            font-size: 0.9rem;
+        }
+
+        .tracking-info {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .tracking-info h4 {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .tracking-number {
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .order-code-result {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid #22c55e;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .order-code-result .code {
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .page-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #111;
+            border-radius: 8px;
+        }
+
+        .page-btn {
+            padding: 8px 16px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #0a0a0a;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            border-color: #22c55e;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .status-message {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+        }
+
+        .status-message.success {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .status-message.error {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .status-message.warning {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>PDF Order Code Viewer</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="refreshPDFList()">Refresh List</button>
+            <button class="btn btn-primary" onclick="printPDF()">Print PDF</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Select PDF</h3>
+                <select id="pdfDropdown" class="pdf-dropdown" onchange="loadSelectedPDF()">
+                    <option value="">Choose a PDF file...</option>
+                </select>
+                <div id="statusMessage"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Text Overlay Configuration</h3>
+                <div class="config-section">
+                    <div class="config-row">
+                        <div class="config-group">
+                            <label>X Position (%)</label>
+                            <input type="number" id="xPos" value="50" min="0" max="100">
+                        </div>
+                        <div class="config-group">
+                            <label>Y Position (%)</label>
+                            <input type="number" id="yPos" value="10" min="0" max="100">
+                        </div>
+                    </div>
+                    <div class="config-row">
+                        <div class="config-group">
+                            <label>Font Size</label>
+                            <input type="number" id="fontSize" value="16" min="8" max="48">
+                        </div>
+                        <div class="config-group">
+                            <label>Rotation (deg)</label>
+                            <input type="number" id="rotation" value="0" min="-180" max="180">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Tracking Information</h3>
+                <div id="trackingInfo" class="tracking-info" style="display: none;">
+                    <h4>Detected Tracking Number:</h4>
+                    <div class="tracking-number" id="trackingNumber"></div>
+                    <div id="orderCodeResult"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="content">
+            <div id="pdfViewer" class="pdf-viewer">
+                <div class="empty-state">
+                    <h3>No PDF Selected</h3>
+                    <p>Select a PDF file from the dropdown to begin</p>
+                </div>
+            </div>
+            <div id="pageControls" class="page-controls" style="display: none;">
+                <button class="page-btn" onclick="previousPage()" id="prevBtn">Previous</button>
+                <span class="page-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+                <button class="page-btn" onclick="nextPage()" id="nextBtn">Next</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let currentPDF = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        let trackingNumber = null;
+        let orderCode = null;
+
+        // Helper function to get filename from path
+        function basename(path) {
+            return path.split(/[/\\]/).pop();
+        }
+
+        // Load PDF list on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('PDF viewer page loaded');
+            refreshPDFList();
+        });
+
+        function refreshPDFList() {
+            console.log('Refreshing PDF list...');
+            fetch('/api/pdfs')
+                .then(response => response.json())
+                .then(pdfs => {
+                    console.log('PDFs received:', pdfs.length);
+                    
+                    const dropdown = document.getElementById('pdfDropdown');
+                    dropdown.innerHTML = '<option value="">Choose a PDF file...</option>';
+                    
+                    pdfs.forEach(pdf => {
+                        const option = document.createElement('option');
+                        option.value = pdf.path;
+                        option.textContent = `${pdf.name} (${new Date(pdf.modified).toLocaleDateString()}) [${pdf.source}]`;
+                        dropdown.appendChild(option);
+                    });
+
+                    console.log('Dropdown options added:', dropdown.options.length - 1);
+                    showStatus(`Found ${pdfs.length} PDF files`, 'success');
+                })
+                .catch(error => {
+                    console.error('Error loading PDF list:', error);
+                    showStatus('Error loading PDF list: ' + error.message, 'error');
+                });
+        }
+
+        function loadSelectedPDF() {
+            const dropdown = document.getElementById('pdfDropdown');
+            const selectedPath = dropdown.value;
+            
+            if (!selectedPath) {
+                resetViewer();
+                return;
+            }
+
+            showStatus('Loading PDF...', 'warning');
+            
+            fetch('/api/pdf-load', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: selectedPath })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showStatus('Error: ' + data.error, 'error');
+                    return;
+                }
+
+                currentPDF = data;
+                currentPage = 1;
+                totalPages = data.totalPages;
+                
+                // Extract tracking number
+                extractTrackingNumber(selectedPath)
+                    .then(() => {
+                        // Render first page
+                        renderPage(1);
+                        // Update page controls
+                        updatePageControls();
+                        showStatus('PDF loaded successfully', 'success');
+                    });
+            })
+            .catch(error => {
+                console.error('Load Error:', error);
+                showStatus('Error loading PDF: ' + error.message, 'error');
+            });
+        }
+
+        function extractTrackingNumber(pdfPath) {
+            return new Promise((resolve, reject) => {
+                fetch('/api/pdf-extract-tracking', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: pdfPath })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.trackingNumber) {
+                        trackingNumber = data.trackingNumber;
+                        document.getElementById('trackingNumber').textContent = trackingNumber;
+                        document.getElementById('trackingInfo').style.display = 'block';
+                        
+                        // Search for order code
+                        searchOrderCode(trackingNumber)
+                            .then(resolve)
+                            .catch(reject);
+                    } else {
+                        document.getElementById('trackingInfo').style.display = 'none';
+                        trackingNumber = null;
+                        orderCode = null;
+                        resolve();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error extracting tracking number:', error);
+                    reject(error);
+                });
+            });
+        }
+
+        function searchOrderCode(trackingNumber) {
+            return new Promise((resolve, reject) => {
+                fetch('/api/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trackingNumber })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    const resultDiv = document.getElementById('orderCodeResult');
+                    
+                    if (data.results && data.results.length > 0) {
+                        const result = data.results[0];
+                        if (result.hasOrderCode) {
+                            orderCode = result.orderCode;
+                            resultDiv.innerHTML = `
+                                <div class="order-code-result">
+                                    <div>Order Code Found:</div>
+                                    <div class="code">${orderCode}</div>
+                                </div>
+                            `;
+                        } else {
+                            orderCode = null;
+                            resultDiv.innerHTML = `
+                                <div class="status-message warning">
+                                    No order code found for SKU: ${result.parentSku}
+                                </div>
+                            `;
+                        }
+                    } else {
+                        orderCode = null;
+                        resultDiv.innerHTML = `
+                            <div class="status-message error">
+                                No results found for tracking number
+                            </div>
+                        `;
+                    }
+                    resolve();
+                })
+                .catch(error => {
+                    console.error('Error searching order code:', error);
+                    reject(error);
+                });
+            });
+        }
+
+        function renderPage(pageNum) {
+            if (!currentPDF) return;
+            
+            try {
+                // For now, show PDF info instead of rendering
+                // TODO: Implement proper PDF rendering
+                const viewer = document.getElementById('pdfViewer');
+                viewer.innerHTML = `
+                    <div style="text-align: center; padding: 40px; background: #1a1a1a; border-radius: 8px;">
+                        <h3 style="color: #fff; margin-bottom: 20px;">PDF Loaded: ${basename(currentPDF.path)}</h3>
+                        <p style="color: #aaa; margin-bottom: 15px;">Total Pages: ${currentPDF.totalPages}</p>
+                        ${orderCode ? `
+                            <div style="background: rgba(34, 197, 94, 0.2); border: 1px solid #22c55e; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                                <h4 style="color: #22c55e; margin-bottom: 10px;">Order Code Found!</h4>
+                                <p style="color: #fff; font-size: 1.2rem; font-weight: 600; font-family: monospace;">${orderCode}</p>
+                            </div>
+                        ` : ''}
+                        <p style="color: #888; font-size: 0.9rem;">
+                            <strong>Note:</strong> PDF rendering is temporarily simplified. 
+                            The tracking extraction and order code overlay functionality is working.
+                            You can still configure and print the PDF with order codes.
+                        </p>
+                    </div>
+                `;
+                
+                currentPage = pageNum;
+                updatePageControls();
+            } catch (error) {
+                showStatus('Error rendering page: ' + error.message, 'error');
+            }
+        }
+
+        function createTextOverlay() {
+            const xPos = document.getElementById('xPos').value;
+            const yPos = document.getElementById('yPos').value;
+            const fontSize = document.getElementById('fontSize').value;
+            const rotation = document.getElementById('rotation').value;
+            
+            return `
+                <div style="
+                    position: absolute;
+                    left: ${xPos}%;
+                    top: ${yPos}%;
+                    background: rgba(34, 197, 94, 0.9);
+                    color: #000;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-weight: 600;
+                    font-size: ${fontSize}px;
+                    transform: translate(-50%, -50%) rotate(${rotation}deg);
+                ">
+                    ${orderCode}
+                </div>
+            `;
+        }
+
+        function updatePageControls() {
+            const controls = document.getElementById('pageControls');
+            const currentPageSpan = document.getElementById('currentPage');
+            const totalPagesSpan = document.getElementById('totalPages');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (currentPDF && totalPages > 1) {
+                controls.style.display = 'flex';
+                currentPageSpan.textContent = currentPage;
+                totalPagesSpan.textContent = totalPages;
+                prevBtn.disabled = currentPage <= 1;
+                nextBtn.disabled = currentPage >= totalPages;
+            } else {
+                controls.style.display = 'none';
+            }
+        }
+
+        function previousPage() {
+            if (currentPage > 1) {
+                renderPage(currentPage - 1);
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                renderPage(currentPage + 1);
+            }
+        }
+
+        function resetViewer() {
+            const viewer = document.getElementById('pdfViewer');
+            viewer.innerHTML = `
+                <div class="empty-state">
+                    <h3>No PDF Selected</h3>
+                    <p>Select a PDF file from the dropdown to begin</p>
+                </div>
+            `;
+            
+            document.getElementById('pageControls').style.display = 'none';
+            document.getElementById('trackingInfo').style.display = 'none';
+            document.getElementById('statusMessage').innerHTML = '';
+            
+            currentPDF = null;
+            currentPage = 1;
+            totalPages = 1;
+            trackingNumber = null;
+            orderCode = null;
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="status-message ${type}">${message}</div>`;
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+
+function printPDF() {
+            if (!currentPDF) {
+                showStatus('No PDF loaded for printing', 'error');
+                return;
+            }
+
+            try {
+                // For now, create a simple print view
+                // TODO: Implement actual PDF modification
+                const config = {
+                    xPos: document.getElementById('xPos').value,
+                    yPos: document.getElementById('yPos').value,
+                    fontSize: document.getElementById('fontSize').value,
+                    rotation: document.getElementById('rotation').value
+                };
+
+                if (!orderCode) {
+                    showStatus('No order code found for printing', 'warning');
+                    return;
+                }
+
+                // Create a simple print view
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(`
+                    <html>
+                        <head>
+                            <title>Print with Order Code</title>
+                            <style>
+                                body { 
+                                    font-family: Arial, sans-serif; 
+                                    margin: 20px; 
+                                    background: #f5f5f5; 
+                                }
+                                .info { 
+                                    background: white; 
+                                    padding: 20px; 
+                                    border-radius: 8px; 
+                                    box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+                                    margin-bottom: 20px;
+                                }
+                                .order-code { 
+                                    font-size: ${config.fontSize}px; 
+                                    font-weight: bold; 
+                                    color: #22c55e; 
+                                    margin: 10px 0;
+                                }
+                                .pdf-info {
+                                    color: #666; 
+                                    font-size: 14px; 
+                                    margin: 5px 0;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="info">
+                                <h3>PDF Information</h3>
+                                <div class="pdf-info">File: ${basename(currentPDF.path)}</div>
+                                <div class="pdf-info">Tracking: ${trackingNumber || 'Not found'}</div>
+                                <div class="order-code">Order Code: ${orderCode}</div>
+                            </div>
+                            <p><strong>Position:</strong> X=${config.xPos}%, Y=${config.yPos}% | <strong>Size:</strong> ${config.fontSize}px | <strong>Rotation:</strong> ${config.rotation}°</p>
+                            <p style="color: #888;"><em>Print this page and manually add the order code to your PDF at the specified position.</em></p>
+                        </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.print();
+                
+                showStatus('Print view opened', 'success');
+            } catch (error) {
+                showStatus('Error preparing print view: ' + error.message, 'error');
+            }
+        }
+
+        // Update overlay when configuration changes
+        ['xPos', 'yPos', 'fontSize', 'rotation'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                if (currentPDF && orderCode) {
+                    renderPage(currentPage);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

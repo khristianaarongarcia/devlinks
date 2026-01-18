@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive PDF Order Code Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .header {
+            background: #111;
+            border-bottom: 1px solid #222;
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #22c55e;
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            background: #16a34a;
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+        }
+
+        .btn-secondary:hover {
+            background: #444;
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: #fff;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            min-height: calc(100vh - 73px);
+        }
+
+        .sidebar {
+            background: #111;
+            border-right: 1px solid #222;
+            padding: 25px;
+            overflow-y: auto;
+        }
+
+        .sidebar-section {
+            margin-bottom: 30px;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .pdf-dropdown {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0a0a0a;
+            color: #fff;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        .pdf-dropdown:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+
+        .config-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .config-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .config-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .config-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .config-group label {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .config-group input {
+            padding: 8px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #0a0a0a;
+            color: #fff;
+            font-size: 0.85rem;
+        }
+
+        .config-group input:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+
+        .content {
+            padding: 40px;
+            overflow-y: auto;
+        }
+
+        .pdf-viewer {
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 12px;
+            min-height: 600px;
+            position: relative;
+            overflow: auto;
+        }
+
+        .pdf-canvas {
+            width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .tracking-info {
+            background: #1a1a1a;
+            border: 1px solid #222;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .tracking-info h4 {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .tracking-number {
+            font-family: monospace;
+            font-size: 1.1rem;
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .order-code-result {
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid #22c55e;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .order-code {
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #22c55e;
+            font-weight: 600;
+        }
+
+        .status-message {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 15px;
+            font-size: 0.85rem;
+        }
+
+        .status-message.success {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .status-message.error {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .status-message.warning {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .page-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #111;
+            border-radius: 8px;
+        }
+
+        .page-btn {
+            padding: 8px 16px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #0a0a0a;
+            color: #fff;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover:not(:disabled) {
+            border-color: #22c55e;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-info {
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .text-overlay-input {
+            position: absolute;
+            background: rgba(34, 197, 94, 0.9);
+            color: #000;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
+            border: 2px solid #22c55e;
+            z-index: 10;
+            min-width: 200px;
+        }
+
+        .pdf-info-bar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 10px;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #222;
+            border-top: 3px solid #22c55e;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <h1>Interactive PDF Order Code Viewer</h1>
+        <div class="header-actions">
+            <button class="btn btn-secondary" onclick="refreshPDFList()">Refresh List</button>
+            <button class="btn btn-success" onclick="saveModifiedPDF()">Save PDF</button>
+            <button class="btn btn-primary" onclick="printModifiedPDF()">Print PDF</button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>Select PDF</h3>
+                <select id="pdfDropdown" class="pdf-dropdown" onchange="loadSelectedPDF()">
+                    <option value="">Choose a PDF file...</option>
+                </select>
+                <div id="statusMessage"></div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Order Code Configuration</h3>
+                <div class="config-section">
+                    <div class="config-row">
+                        <div class="config-group">
+                            <label>Order Code</label>
+                            <input type="text" id="orderCodeInput" placeholder="Enter order code or auto-detect">
+                        </div>
+                        <div class="config-group">
+                            <label>Font Size</label>
+                            <input type="number" id="fontSize" value="16" min="8" max="48">
+                        </div>
+                    </div>
+                    <div class="config-row">
+                        <div class="config-group">
+                            <label>X Position (%)</label>
+                            <input type="number" id="xPos" value="50" min="0" max="100">
+                        </div>
+                        <div class="config-group">
+                            <label>Y Position (%)</label>
+                            <input type="number" id="yPos" value="10" min="0" max="100">
+                        </div>
+                    </div>
+                    <div class="config-row">
+                        <div class="config-group">
+                            <label>Rotation (deg)</label>
+                            <input type="number" id="rotation" value="0" min="-180" max="180">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Tracking Information</h3>
+                <div id="trackingInfo" class="tracking-info" style="display: none;">
+                    <h4>Detected Tracking Number:</h4>
+                    <div class="tracking-number" id="trackingNumber"></div>
+                    <div id="orderCodeResult"></div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="content">
+            <div id="pdfViewer" class="pdf-viewer">
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <h3>Loading PDF Viewer...</h3>
+                    <p>Please select a PDF file from the dropdown to begin.</p>
+                    <p><strong>Features:</strong></p>
+                    <ul>
+                        <li>✅ Real-time PDF viewing</li>
+                        <li>✅ Interactive order code overlay</li>
+                        <li>✅ Click to position text</li>
+                        <li>✅ Save modified PDF</li>
+                        <li>✅ Print functionality</li>
+                    </ul>
+                </div>
+            </div>
+            <div id="pageControls" class="page-controls" style="display: none;">
+                <button class="page-btn" onclick="previousPage()" id="prevBtn">Previous</button>
+                <span class="page-info">Page <span id="currentPage">1</span> of <span id="totalPages">1</span></span>
+                <button class="page-btn" onclick="nextPage()" id="nextBtn">Next</button>
+            </div>
+        </main>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        // State variables
+        let currentPDF = null;
+        let currentPage = 1;
+        let totalPages = 1;
+        let trackingNumber = null;
+        let orderCode = null;
+        let overlayPosition = null;
+
+        // Helper function to get filename from path
+        function basename(path) {
+            return path.split(/[/\\]/).pop();
+        }
+
+        // Show status messages
+        function showStatus(message, type = 'info', duration = 3000) {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="status-message ${type}">${message}</div>`;
+            
+            // Auto-hide after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, duration);
+            }
+        }
+
+        // Reset viewer to initial state
+        function resetViewer() {
+            const viewer = document.getElementById('pdfViewer');
+            viewer.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <h3>No PDF Selected</h3>
+                    <p>Select a PDF file from the dropdown to begin.</p>
+                </div>
+            `;
+            
+            document.getElementById('pageControls').style.display = 'none';
+            document.getElementById('trackingInfo').style.display = 'none';
+            
+            currentPDF = null;
+            currentPage = 1;
+            totalPages = 1;
+            trackingNumber = null;
+            orderCode = null;
+            overlayPosition = null;
+        }
+
+        // Update page controls
+        function updatePageControls() {
+            const controls = document.getElementById('pageControls');
+            const currentPageSpan = document.getElementById('currentPage');
+            const totalPagesSpan = document.getElementById('totalPages');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            
+            if (currentPDF && totalPages > 1) {
+                controls.style.display = 'flex';
+                currentPageSpan.textContent = currentPage;
+                totalPagesSpan.textContent = totalPages;
+                prevBtn.disabled = currentPage <= 1;
+                nextBtn.disabled = currentPage >= totalPages;
+            } else {
+                controls.style.display = 'none';
+            }
+        }
+
+        // Refresh PDF list
+        function refreshPDFList() {
+            showStatus('Loading PDF list...', 'info');
+            
+            fetch('/api/pdfs')
+                .then(response => response.json())
+                .then(pdfs => {
+                    const dropdown = document.getElementById('pdfDropdown');
+                    dropdown.innerHTML = '<option value="">Choose a PDF file...</option>';
+                    
+                    pdfs.forEach(pdf => {
+                        const option = document.createElement('option');
+                        option.value = pdf.path;
+                        option.textContent = `${pdf.name} (${new Date(pdf.modified).toLocaleDateString()}) [${pdf.source}]`;
+                        dropdown.appendChild(option);
+                    });
+
+                    showStatus(`Found ${pdfs.length} PDF files`, 'success', 2000);
+                })
+                .catch(error => {
+                    console.error('Error loading PDF list:', error);
+                    showStatus('Error loading PDF list: ' + error.message, 'error');
+                });
+        }
+
+        // Load selected PDF
+        function loadSelectedPDF() {
+            const dropdown = document.getElementById('pdfDropdown');
+            const selectedPath = dropdown.value;
+            
+            if (!selectedPath) {
+                resetViewer();
+                return;
+            }
+
+            showStatus('Loading PDF...', 'info');
+            
+            fetch('/api/pdf-load', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: selectedPath })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showStatus('Error: ' + data.error, 'error');
+                    return;
+                }
+
+                currentPDF = data;
+                currentPage = 1;
+                totalPages = data.totalPages;
+                
+                // Extract tracking number
+                extractTrackingNumber(selectedPath);
+                
+                // Render first page
+                renderPDFPage(1);
+                
+                updatePageControls();
+                
+                showStatus('PDF loaded successfully', 'success', 2000);
+            })
+            .catch(error => {
+                showStatus('Error loading PDF: ' + error.message, 'error');
+            });
+        }
+
+        // Extract tracking number
+        function extractTrackingNumber(pdfPath) {
+            fetch('/api/pdf-extract-tracking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: pdfPath })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.trackingNumber) {
+                    trackingNumber = data.trackingNumber;
+                    document.getElementById('trackingNumber').textContent = trackingNumber;
+                    document.getElementById('trackingInfo').style.display = 'block';
+                    
+                    // Search for order code
+                    searchOrderCode(trackingNumber);
+                } else {
+                    document.getElementById('trackingInfo').style.display = 'none';
+                    trackingNumber = null;
+                    
+                    // Clear order code if no tracking found
+                    document.getElementById('orderCodeInput').value = '';
+                    updateOrderCodePreview();
+                }
+            })
+            .catch(error => {
+                console.error('Error extracting tracking number:', error);
+                showStatus('Error extracting tracking: ' + error.message, 'error');
+            });
+        }
+
+        // Search for order code
+        function searchOrderCode(trackingNumber) {
+            fetch('/api/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trackingNumber })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('orderCodeResult');
+                
+                if (data.results && data.results.length > 0) {
+                    const result = data.results[0];
+                    if (result.hasOrderCode) {
+                        orderCode = result.orderCode;
+                        resultDiv.innerHTML = `
+                            <div class="order-code-result">
+                                <div>Order Code Found:</div>
+                                <div class="code">${orderCode}</div>
+                            </div>
+                        `;
+                        
+                        // Auto-fill order code input
+                        document.getElementById('orderCodeInput').value = orderCode;
+                        updateOrderCodePreview();
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="status-message warning">
+                                No order code found for SKU: ${result.parentSku}
+                            </div>
+                        `;
+                    }
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="status-message error">
+                            No results found for tracking number
+                        </div>
+                        `;
+                }
+            })
+            .catch(error => {
+                console.error('Error searching order code:', error);
+                showStatus('Error searching order code: ' + error.message, 'error');
+            });
+        }
+
+        // Update order code preview
+        function updateOrderCodePreview() {
+            const orderCodeInput = document.getElementById('orderCodeInput').value;
+            if (orderCodeInput) {
+                orderCode = orderCodeInput;
+                if (currentPDF) {
+                    renderPDFPage(currentPage);
+                }
+            }
+        }
+
+        // Render PDF page with overlay
+        function renderPDFPage(pageNum) {
+            if (!currentPDF) return;
+            
+            const viewer = document.getElementById('pdfViewer');
+            
+            // Get current configuration
+            const config = {
+                xPos: parseInt(document.getElementById('xPos').value) || 50,
+                yPos: parseInt(document.getElementById('yPos').value) || 10,
+                fontSize: parseInt(document.getElementById('fontSize').value) || 16,
+                rotation: parseInt(document.getElementById('rotation').value) || 0
+            };
+
+            // Show loading state
+            viewer.innerHTML = `
+                <div class="loading-state">
+                    <div class="loading-spinner"></div>
+                    <h3>Loading PDF page...</h3>
+                </div>
+            `;
+
+            // Fetch PDF with overlay
+            fetch('/api/pdf-render', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    path: currentPDF.path, 
+                    page: pageNum,
+                    orderCode: orderCode,
+                    config: config 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showStatus('Error rendering PDF: ' + data.error, 'error');
+                    viewer.innerHTML = `
+                        <div class="loading-state">
+                            <h3>Error</h3>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Update page info
+                currentPage = pageNum;
+                totalPages = data.totalPages;
+
+                // Create PDF viewer with overlay
+                viewer.innerHTML = `
+                    <div class="pdf-info-bar">
+                        <span>PDF: ${basename(currentPDF.path)} | Page ${currentPage} of ${totalPages}</span>
+                        <span>Order Code: ${orderCode || 'Not set'}</span>
+                    </div>
+                    <iframe src="${data.pdfUrl}" class="pdf-canvas" frameborder="0"></iframe>
+                `;
+
+                // Add interactive overlay if order code is set
+                if (orderCode) {
+                    viewer.innerHTML += `
+                        <div class="text-overlay-input" 
+                             style="left: ${config.xPos}%; top: ${config.yPos}%; font-size: ${config.fontSize}px; transform: translate(-50%, -50%) rotate(${config.rotation}deg);"
+                             onclick="event.stopPropagation(); focusOrderCode();">
+                            ${orderCode}
+                        </div>
+                    `;
+                    
+                    // Make overlay editable
+                    setTimeout(() => {
+                        const overlay = viewer.querySelector('.text-overlay-input');
+                        if (overlay) {
+                            overlay.contentEditable = true;
+                            overlay.focus();
+                        }
+                    }, 100);
+                }
+
+                updatePageControls();
+            })
+            .catch(error => {
+                console.error('Error rendering PDF:', error);
+                showStatus('Error rendering PDF: ' + error.message, 'error');
+                viewer.innerHTML = `
+                    <div class="loading-state">
+                        <h3>Error</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            });
+        }
+
+        // Focus order code input for editing
+        function focusOrderCode() {
+            const overlay = document.querySelector('.text-overlay-input');
+            if (overlay) {
+                // Save current position
+                overlayPosition = {
+                    x: parseInt(document.getElementById('xPos').value) || 50,
+                    y: parseInt(document.getElementById('yPos').value) || 10
+                };
+                
+                // Make overlay fully editable
+                overlay.style.border = '3px solid #22c55e';
+                overlay.style.outline = 'none';
+            }
+        }
+
+        // Handle order code input changes
+        document.getElementById('orderCodeInput').addEventListener('input', (e) => {
+            orderCode = e.target.value;
+            if (currentPDF) {
+                renderPDFPage(currentPage);
+            }
+        });
+
+        // Handle configuration changes
+        ['xPos', 'yPos', 'fontSize', 'rotation'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                if (currentPDF && orderCode) {
+                    renderPDFPage(currentPage);
+                }
+            });
+        });
+
+        // Navigation functions
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                renderPDFPage(currentPage);
+            }
+        }
+
+        function nextPage() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderPDFPage(currentPage);
+            }
+        }
+
+        // Save modified PDF
+        function saveModifiedPDF() {
+            if (!currentPDF) {
+                showStatus('No PDF loaded for saving', 'error');
+                return;
+            }
+
+            if (!orderCode) {
+                showStatus('Please enter or detect an order code first', 'warning');
+                return;
+            }
+
+            const config = {
+                xPos: parseInt(document.getElementById('xPos').value) || 50,
+                yPos: parseInt(document.getElementById('yPos').value) || 10,
+                fontSize: parseInt(document.getElementById('fontSize').value) || 16,
+                rotation: parseInt(document.getElementById('rotation').value) || 0
+            };
+
+            showStatus('Saving modified PDF...', 'info');
+
+            fetch('/api/pdf-save', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    path: currentPDF.path, 
+                    orderCode: orderCode,
+                    config: config 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showStatus('Error saving PDF: ' + data.error, 'error');
+                    return;
+                }
+
+                // Download the saved PDF
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.downloadUrl;
+                downloadLink.download = `modified_${basename(currentPDF.path)}_${new Date().toISOString().slice(0, 10)}.pdf`;
+                downloadLink.style.display = 'none';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+
+                showStatus('PDF saved successfully!', 'success');
+            })
+            .catch(error => {
+                showStatus('Error saving PDF: ' + error.message, 'error');
+            });
+        }
+
+        // Print modified PDF
+        function printModifiedPDF() {
+            if (!currentPDF) {
+                showStatus('No PDF loaded for printing', 'error');
+                return;
+            }
+
+            if (!orderCode) {
+                showStatus('Please enter or detect an order code first', 'warning');
+                return;
+            }
+
+            const config = {
+                xPos: parseInt(document.getElementById('xPos').value) || 50,
+                yPos: parseInt(document.getElementById('yPos').value) || 10,
+                fontSize: parseInt(document.getElementById('fontSize').value) || 16,
+                rotation: parseInt(document.getElementById('rotation').value) || 0
+            };
+
+            showStatus('Preparing PDF for printing...', 'info');
+
+            fetch('/api/pdf-print', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    path: currentPDF.path, 
+                    orderCode: orderCode,
+                    config: config 
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showStatus('Error preparing PDF for print: ' + data.error, 'error');
+                    return;
+                }
+
+                // Open the print version in a new tab
+                window.open(data.printUrl, '_blank');
+                showStatus('Print version opened in new tab', 'success');
+            })
+            .catch(error => {
+                showStatus('Error preparing PDF for print: ' + error.message, 'error');
+            });
+        }
+
+        // Handle overlay position dragging
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+
+        document.addEventListener('mousedown', (e) => {
+            const overlay = document.querySelector('.text-overlay-input');
+            if (overlay && overlay.contentEditable === 'true') {
+                isDragging = true;
+                dragStart.x = e.clientX - overlayPosition.x;
+                dragStart.y = e.clientY - overlayPosition.y;
+                overlay.style.cursor = 'grabbing';
+                e.preventDefault();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            const overlay = document.querySelector('.text-overlay-input');
+            if (isDragging && overlay && overlay.contentEditable === 'true') {
+                e.preventDefault();
+                const viewer = document.getElementById('pdfViewer');
+                const rect = viewer.getBoundingClientRect();
+                
+                const newX = ((e.clientX - rect.left) / rect.width) * 100;
+                const newY = ((e.clientY - rect.top) / rect.height) * 100;
+                
+                // Update position inputs
+                document.getElementById('xPos').value = Math.round(newX);
+                document.getElementById('yPos').value = Math.round(newY);
+                
+                // Update overlay position
+                overlay.style.left = newX + '%';
+                overlay.style.top = newY + '%';
+                overlayPosition.x = newX;
+                overlayPosition.y = newY;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            const overlay = document.querySelector('.text-overlay-input');
+            if (overlay) {
+                isDragging = false;
+                overlay.style.cursor = 'pointer';
+                overlay.style.border = '2px solid #22c55e';
+            }
+        });
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Interactive PDF viewer initialized');
+            refreshPDFList();
+        });
+    </script>
+</body>
+</html>

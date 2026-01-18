@@ -7,4 +7,5 @@
 # OS/IDE files
 .DS_Store
 Thumbs.db
-.vscode/
+.vscode/nul
+nul
